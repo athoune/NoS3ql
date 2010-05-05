@@ -1,10 +1,18 @@
 <?php
-
+class Query {
+  function __construct($session) {
+    $this->session = $session;
+  }
+  function counter($key) {
+    return $this->session->redis->get("counter:$key");
+  }
+}
 Class Session {
   public $redis;
   function __construct(){
     $this->redis = new Redis();
     $this->redis->connect('127.0.0.1', 6379);
+    $this->query = new Query($this);
   }
   public function nextId() {
     return $this->redis->incr('id');
@@ -15,9 +23,11 @@ Class Session {
   private function buildKey($obj) {
     return 'data:'. get_class($obj) .':'. $obj->id;
   }
-  public function store($obj) {
+  public function store(&$obj) {
     $this->attach($obj);
+    $obj->__doModify();
     $this->redis->set($this->buildKey($obj), json_encode($obj->__data));
+    
   }
   public function attach(&$obj) {
     $obj->__session = $this;
@@ -28,6 +38,7 @@ Class Session {
   }
   public function delete(&$obj) {
     $this->redis->delete($this->buildKey($obj));
+    $obj->__doDelete();
   }
 }
 

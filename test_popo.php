@@ -13,4 +13,4 @@ $user = new User;
 
 $session->attach($user);
 print $user->id ."\n";
-print $session->redis->get('counter:user') . "\n";
+print $session->query->counter('user') . "\n";
