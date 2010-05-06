@@ -71,15 +71,26 @@ abstract class Popo {
   private $__before = array();
   private $__events = array();
   
-  protected function __settings() {
-    
-  }
+  protected function __settings() { }
 
   public function __construct($session = null, $data = array('id'=>null)) {
     $this->__session = $session;
     $this->__data = $data;
     $this->__before = $data;
     $this->__settings();
+  }
+  
+  public function __modify() {
+    $modify = array();
+    foreach($this->__before as $k => $v) {
+      if($this->__data[$k] != $v) {
+        $modify[] = $k;
+      }
+    }
+    return array(
+      'modify' => $modify, 
+      'append' => array_diff(array_keys($this->__data), array_keys($this->__before)),
+      'deleted' => array_diff(array_keys($this->__before), array_keys($this->__data)));
   }
   
   public function __addEvent($event) {
@@ -100,11 +111,7 @@ abstract class Popo {
       $event->onModify($this->__session);
     }
   }
-  
   public function __get($key) {
-    if(substr($key, 0, 2) == '__') {
-      return $this->$key;
-    }
     if(array_key_exists($key, $this->__data)) {
       return $this->__data[$key];
     }

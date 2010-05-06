@@ -14,3 +14,5 @@ $user = new User();
 $session->attach($user);
 print $user->id ."\n";
 print $session->query->counter('user') . "\n";
+$user->name = "Robert";
+var_dump($user->__modify());
