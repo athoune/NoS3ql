@@ -80,6 +80,10 @@ abstract class Popo {
     $this->__settings();
   }
   
+  public function __destruct() {
+    $this->__session->store($this);
+  }
+  
   public function __modify() {
     $modify = array();
     foreach($this->__before as $k => $v) {
