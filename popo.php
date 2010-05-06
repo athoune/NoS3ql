@@ -27,6 +27,7 @@ Class Session {
     $this->attach($obj);
     $obj->__doModify();
     $this->redis->set($this->buildKey($obj), json_encode($obj->__data));
+    //print "[STORE] " . $this->buildKey($obj) . "\n";
   }
   public function attach(&$obj) {
     $obj->__session = $this;
@@ -36,8 +37,10 @@ Class Session {
     }
   }
   public function delete(&$obj) {
-    $this->redis->delete($this->buildKey($obj));
+    $key = $this->buildKey($obj);
+    $this->redis->delete($key);
     $obj->__doDelete();
+    $obj->__session = null;
   }
 }
 
@@ -66,7 +69,7 @@ class Tag extends Event {
 }
 
 abstract class Popo {
-  private $__data;
+  public $__data;
   public $__session;
   private $__before = array();
   private $__events = array();
@@ -81,7 +84,9 @@ abstract class Popo {
   }
   
   public function __destruct() {
-    $this->__session->store($this);
+    if($this->__session != null) {
+      $this->__session->store($this);
+    }
   }
   
   public function __modify() {
