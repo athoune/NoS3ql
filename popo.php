@@ -18,7 +18,7 @@ Class Session {
     return $this->redis->incr('id');
   }
   public function get($clazz, $key) {
-    $data = $this->redis->get('data:'. $clazz .':'. $key);
+    return new $clazz($this, $this->redis->get('data:'. $clazz .':'. $key));
   }
   private function buildKey($obj) {
     return 'data:'. get_class($obj) .':'. $obj->id;
@@ -27,7 +27,6 @@ Class Session {
     $this->attach($obj);
     $obj->__doModify();
     $this->redis->set($this->buildKey($obj), json_encode($obj->__data));
-    
   }
   public function attach(&$obj) {
     $obj->__session = $this;
@@ -60,11 +59,28 @@ class Counter extends Event {
   }
 }
 
-class Popo {
-  public $__data = array('id'=>null);
-  public $__session = null;
-  private $__dirty = array();
+class Tag extends Event {
+  function __construct($family) {
+    $this->family = "tag:$family:";
+  }
+}
+
+abstract class Popo {
+  private $__data;
+  public $__session;
+  private $__before = array();
   private $__events = array();
+  
+  protected function __settings() {
+    
+  }
+
+  public function __construct($session = null, $data = array('id'=>null)) {
+    $this->__session = $session;
+    $this->__data = $data;
+    $this->__before = $data;
+    $this->__settings();
+  }
   
   public function __addEvent($event) {
     $this->__events[] = $event;
@@ -86,13 +102,15 @@ class Popo {
   }
   
   public function __get($key) {
+    if(substr($key, 0, 2) == '__') {
+      return $this->$key;
+    }
     if(array_key_exists($key, $this->__data)) {
       return $this->__data[$key];
     }
-    trigger_error('no such key');
+    trigger_error("$key doesn't exist");
   }
   public function __set($key, $value) {
     $this->__data[$key] = $value;
-    $this->__dirty[$key] = $value;
   }
 }
