@@ -20,7 +20,7 @@ Class Session {
   public function get($clazz, $key) {
     return new $clazz($this, $this->redis->get('data:'. $clazz .':'. $key));
   }
-  private function buildKey($obj) {
+  public function buildKey($obj) {
     return 'data:'. get_class($obj) .':'. $obj->id;
   }
   public function store(&$obj) {
@@ -63,15 +63,38 @@ class Counter extends Event {
 }
 
 class Tag extends Event {
-  function __construct($family) {
+  function __construct($family, $object, $field) {
     $this->family = "tag:$family:";
+    $this->object = $object;
+    $this->field = $field;
+  }
+  public function onCreate($session) {}
+  public function onModify($session) {
+    $now = $this->object->__data[$this->field];
+    if($now == null) $now = array();
+    $before = $this->object->__before[$this->field];
+    if($before == null) $before = array();
+    foreach(array_diff($before, $now) as $tag) {
+      $session->redis->sRemove($this->buildKey($tag), $session->buildKey($this->object));
+    }
+    foreach(array_diff($now, $before) as $tag) {
+      $session->redis->sAdd($this->buildKey($tag), $session->buildKey($this->object));
+    }
+  }
+  protected function buildKey($value) {
+    return $this->family . $value;
+  }
+  public function onDelete($session) {
+    foreach($this->object->__before[$this->field] as $tag) {
+      $session->redis->sRemove($this->buildKey($tag), $session->buildKey($this->object));
+    }
   }
 }
 
 abstract class Popo {
   public $__data;
   public $__session;
-  private $__before = array();
+  public $__before = array();
   private $__events = array();
   
   protected function __settings() { }
