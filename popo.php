@@ -46,6 +46,7 @@ Class Session {
   }
   public function attach(&$obj) {
     $obj->__session = $this;
+    $obj->__before = $obj->__data;
     if($obj->id == null) {
       $obj->id = $this->nextId();
       $multiExecBlock = new Predis\CommandPipeline($this->redis);
@@ -112,20 +113,15 @@ class Tag extends Event {
 }
 
 abstract class Popo {
-  public $__data;
+  public $__data = array();
   public $__session;
+  public $id = null;
   public $__before = array();
   private $__events = array();
   
-  protected function __settings() { }
-
-  public function __construct($session = null, $data = array('id'=>null)) {
-    $this->__session = $session;
-    $this->__data = $data;
-    $this->__before = $data;
-    $this->__settings();
-  }
-  
+  /*
+  Trouver un système au niveau de la session, pour pas pourrir une méthode de popo
+  */
   public function __destruct() {
     if($this->__session != null) {
       $this->__session->store($this);

@@ -2,9 +2,10 @@
 require_once 'popo.php';
 
 $session = new Session();
+$session->flushdb();
 
 class User extends Popo {
-  function __settings() {
+  function __construct() {
     $this->__addEvent(new Counter('user'));
     $this->__addEvent(new Tag('vegetable', $this, 'tags'));
   }
