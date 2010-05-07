@@ -1,4 +1,10 @@
 <?php
+/*
+[TODO] using MultiExecBlock when it will be stable
+[TODO] using try/catch and revert
+[TODO] S3 store, sync and async (with a storage worker)
+
+*/
 
 require_once 'Predis.php';
 
@@ -15,6 +21,9 @@ Class Session {
   function __construct(){
     $this->redis = new Predis\Client('redis://127.0.0.1:6379/');
     $this->query = new Query($this);
+  }
+  public function flushdb() {
+    $this->redis->flushdb();
   }
   public function nextId() {
     return $this->redis->incr('id');
@@ -139,7 +148,6 @@ abstract class Popo {
   public function __addEvent($event) {
     $this->__events[] = $event;
   }
-  //[TODO] using MultiExecBlock when it will be stable
   public function __doDelete(&$multiExecBlock) {
     foreach($this->__events as $event) {
       $event->onDelete($this->__session, $multiExecBlock);
