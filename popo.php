@@ -25,42 +25,51 @@ Class Session {
   public function buildKey($obj) {
     return 'data:'. get_class($obj) .':'. $obj->id;
   }
-  public function store(&$obj) {
+  public function store(&$obj, &$multiExecBlock = null) {
     $this->attach($obj);
-    $obj->__doModify();
-    $this->redis->set($this->buildKey($obj), json_encode($obj->__data));
+    if($multiExecBlock == null) {
+      $multiExecBlock = new Predis\CommandPipeline($this->redis);
+    }
+    $obj->__doModify($multiExecBlock);
+    $multiExecBlock->set($this->buildKey($obj), json_encode($obj->__data));
+    $multiExecBlock->execute();
     //print "[STORE] " . $this->buildKey($obj) . "\n";
   }
   public function attach(&$obj) {
     $obj->__session = $this;
     if($obj->id == null) {
       $obj->id = $this->nextId();
-      $obj->__doCreate();
+      $multiExecBlock = new Predis\CommandPipeline($this->redis);
+      $obj->__doCreate($multiExecBlock);
+      $this->store($obj, $multiExecBlock);
+      //[FIXME] bancal;
     }
   }
   public function delete(&$obj) {
     $key = $this->buildKey($obj);
-    $this->redis->delete($key);
-    $obj->__doDelete();
+    $multiExecBlock = new Predis\CommandPipeline($this->redis);
+    $multiExecBlock->delete($key);
+    $obj->__doDelete($multiExecBlock);
+    $multiExecBlock->execute();
     $obj->__session = null;
   }
 }
 
 class Event {
-  public function onCreate($session) {}
-  public function onModify($session) {}
-  public function onDelete($session) {}
+  public function onCreate($session, &$multiExecBlock) {}
+  public function onModify($session, &$multiExecBlock) {}
+  public function onDelete($session, &$multiExecBlock) {}
 }
 
 class Counter extends Event {
   function __construct($key) {
     $this->name = "counter:$key";
   }
-  public function onCreate($session) {
-    $session->redis->incr($this->name);
+  public function onCreate($session, &$multiExecBlock) {
+    $multiExecBlock->incr($this->name);
   }
-  public function onDelete($session) {
-    $session->redis->decr($this->name);
+  public function onDelete($session, &$multiExecBlock) {
+    $multiExecBlock->decr($this->name);
   }
 }
 
@@ -70,25 +79,25 @@ class Tag extends Event {
     $this->object = $object;
     $this->field = $field;
   }
-  public function onCreate($session) {}
-  public function onModify($session) {
+  public function onCreate($session, &$multiExecBlock) {}
+  public function onModify($session, &$multiExecBlock) {
     $now = $this->object->__data[$this->field];
     if($now == null) $now = array();
     $before = $this->object->__before[$this->field];
     if($before == null) $before = array();
     foreach(array_diff($before, $now) as $tag) {
-      $session->redis->sRemove($this->buildKey($tag), $session->buildKey($this->object));
+      $multiExecBlock->sRemove($this->buildKey($tag), $session->buildKey($this->object));
     }
     foreach(array_diff($now, $before) as $tag) {
-      $session->redis->sadd($this->buildKey($tag), $session->buildKey($this->object));
+      $multiExecBlock->sadd($this->buildKey($tag), $session->buildKey($this->object));
     }
   }
   protected function buildKey($value) {
     return $this->family . $value;
   }
-  public function onDelete($session) {
+  public function onDelete($session, &$multiExecBlock) {
     foreach($this->object->__before[$this->field] as $tag) {
-      $session->redis->sRemove($this->buildKey($tag), $session->buildKey($this->object));
+      $multiExecBlock->sRemove($this->buildKey($tag), $session->buildKey($this->object));
     }
   }
 }
@@ -130,19 +139,20 @@ abstract class Popo {
   public function __addEvent($event) {
     $this->__events[] = $event;
   }
-  public function __doDelete() {
+  //[TODO] using MultiExecBlock when it will be stable
+  public function __doDelete(&$multiExecBlock) {
     foreach($this->__events as $event) {
-      $event->onDelete($this->__session);
+      $event->onDelete($this->__session, $multiExecBlock);
     }
   }
-  public function __doCreate() {
+  public function __doCreate(&$multiExecBlock) {
     foreach($this->__events as $event) {
-      $event->onCreate($this->__session);
+      $event->onCreate($this->__session, $multiExecBlock);
     }
   }
-  public function __doModify() {
+  public function __doModify(&$multiExecBlock) {
     foreach($this->__events as $event) {
-      $event->onModify($this->__session);
+      $event->onModify($this->__session, $multiExecBlock);
     }
   }
   public function __get($key) {
