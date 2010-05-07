@@ -19,4 +19,4 @@ $user->name = "Robert";
 $user->tags = array('petit pois', 'carotte', 'courgette');
 var_dump($user->__modify());
 $session->store($user);
-var_dump($session->redis->sMembers('tag:vegetable:carotte'));
+var_dump($session->redis->smembers('tag:vegetable:carotte'));

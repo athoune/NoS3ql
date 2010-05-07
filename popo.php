@@ -1,4 +1,7 @@
 <?php
+
+require_once 'Predis.php';
+
 class Query {
   function __construct($session) {
     $this->session = $session;
@@ -10,8 +13,7 @@ class Query {
 Class Session {
   public $redis;
   function __construct(){
-    $this->redis = new Redis();
-    $this->redis->connect('127.0.0.1', 6379);
+    $this->redis = new Predis\Client('redis://127.0.0.1:6379/');
     $this->query = new Query($this);
   }
   public function nextId() {
@@ -78,7 +80,7 @@ class Tag extends Event {
       $session->redis->sRemove($this->buildKey($tag), $session->buildKey($this->object));
     }
     foreach(array_diff($now, $before) as $tag) {
-      $session->redis->sAdd($this->buildKey($tag), $session->buildKey($this->object));
+      $session->redis->sadd($this->buildKey($tag), $session->buildKey($this->object));
     }
   }
   protected function buildKey($value) {
