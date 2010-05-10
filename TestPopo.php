@@ -17,7 +17,6 @@ class TestPopo extends PHPUnit_Framework_TestCase {
       $this->user = new User();
       $this->session->attach($this->user);
       $this->user->name = "Robert";
-      $this->user->tags = array('petit pois', 'carotte', 'courgette');
     }
     public function testId() {
       $this->assertEquals(1, $this->user->id);
@@ -25,8 +24,12 @@ class TestPopo extends PHPUnit_Framework_TestCase {
     public function testCounter() {
       $this->assertEquals(1, $this->session->query->counter('user'));
     }
+    public function testSearch() {
+      $this->user->tags = array('petit pois', 'carotte', 'courgette');
+      $this->session->store($this->user);
+      var_dump($this->session->dump());
+      var_dump($this->session->redis->smembers('tag:vegetable:carotte'));
+      $this->assertContains($this->user->id, $this->session->redis->smembers('tag:vegetable:carotte'));
+    }
 }
 
-// var_dump($user->__modify());
-// $session->store($user);
-// var_dump($session->redis->smembers('tag:vegetable:carotte'));
