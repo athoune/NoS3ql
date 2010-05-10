@@ -63,6 +63,9 @@ Class Session {
     $multiExecBlock->execute();
     $obj->__session = null;
   }
+  public function dump() {
+    return $this->redis->keys('*');
+  }
 }
 
 class Event {
