@@ -1,5 +1,8 @@
 <?php
+namespace Popo;
 /*
+http://code.google.com/p/redis/wiki/CommandReference
+
 [TODO] using MultiExecBlock when it will be stable
 [TODO] using try/catch and revert
 [TODO] S3 store, sync and async (with a storage worker)
@@ -19,7 +22,7 @@ class Query {
 Class Session {
   public $redis;
   function __construct(){
-    $this->redis = new Predis\Client('redis://127.0.0.1:6379/');
+    $this->redis = new \Predis\Client('redis://127.0.0.1:6379/');
     $this->query = new Query($this);
   }
   public function flushdb() {
@@ -37,7 +40,7 @@ Class Session {
   public function store(&$obj, &$multiExecBlock = null) {
     $this->attach($obj);
     if($multiExecBlock == null) {
-      $multiExecBlock = new Predis\CommandPipeline($this->redis);
+      $multiExecBlock = new \Predis\CommandPipeline($this->redis);
     }
     $obj->__doModify($multiExecBlock);
     $multiExecBlock->set($this->buildKey($obj), json_encode($obj->__data));
@@ -49,7 +52,7 @@ Class Session {
     $obj->__before = $obj->__data;
     if($obj->id == null) {
       $obj->id = $this->nextId();
-      $multiExecBlock = new Predis\CommandPipeline($this->redis);
+      $multiExecBlock = new \Predis\CommandPipeline($this->redis);
       $obj->__doCreate($multiExecBlock);
       $this->store($obj, $multiExecBlock);
       //[FIXME] bancal;
