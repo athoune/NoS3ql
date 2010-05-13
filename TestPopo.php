@@ -26,10 +26,10 @@ class TestPopo extends PHPUnit_Framework_TestCase {
     }
     public function testSearch() {
       $this->user->tags = array('petit pois', 'carotte', 'courgette');
+      $this->assertEquals(array('petit pois', 'carotte', 'courgette'), $this->user->__data['tags']);
       $this->session->store($this->user);
-      var_dump($this->session->dump());
-      var_dump($this->session->redis->smembers('tag:vegetable:carotte'));
-      $this->assertContains($this->user->id, $this->session->redis->smembers('tag:vegetable:carotte'));
+      #var_dump($this->session->dump());
+      $this->assertContains(Popo\Session::buildkey($this->user), $this->session->redis->smembers('tag:vegetable:carotte'));
     }
 }
 

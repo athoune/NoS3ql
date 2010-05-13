@@ -11,6 +11,9 @@ http://code.google.com/p/redis/wiki/CommandReference
 
 require_once 'Predis.php';
 
+function escape($str) {
+  return str_replace(' ', '_', $str);
+}
 class Query {
   function __construct($session) {
     $this->session = $session;
@@ -19,6 +22,7 @@ class Query {
     return $this->session->redis->get("counter:$key");
   }
 }
+
 Class Session {
   public $redis;
   function __construct(){
@@ -34,11 +38,17 @@ Class Session {
   public function get($clazz, $key) {
     return new $clazz($this, $this->redis->get('data:'. $clazz .':'. $key));
   }
-  public function buildKey($obj) {
+  public static function buildKey($obj) {
     return 'data:'. get_class($obj) .':'. $obj->id;
   }
   public function store(&$obj, &$multiExecBlock = null) {
-    $this->attach($obj);
+    if($obj->__session == null) {
+      $this->attach($obj);
+    } else {
+      $this->_store($obj, $multiExecBlock);
+    }
+  }
+  private function _store(&$obj, &$multiExecBlock) {
     if($multiExecBlock == null) {
       $multiExecBlock = new \Predis\CommandPipeline($this->redis);
     }
@@ -54,8 +64,7 @@ Class Session {
       $obj->id = $this->nextId();
       $multiExecBlock = new \Predis\CommandPipeline($this->redis);
       $obj->__doCreate($multiExecBlock);
-      $this->store($obj, $multiExecBlock);
-      //[FIXME] bancal;
+      $this->_store($obj, $multiExecBlock);
     }
   }
   public function delete(&$obj) {
@@ -71,7 +80,7 @@ Class Session {
   }
 }
 
-class Event {
+abstract class Event {
   public function onCreate($session, &$multiExecBlock) {}
   public function onModify($session, &$multiExecBlock) {}
   public function onDelete($session, &$multiExecBlock) {}
@@ -98,9 +107,9 @@ class Tag extends Event {
   public function onCreate($session, &$multiExecBlock) {}
   public function onModify($session, &$multiExecBlock) {
     $now = $this->object->__data[$this->field];
-    if($now == null) $now = array();
+    if($now == null) { $now = array(); }
     $before = $this->object->__before[$this->field];
-    if($before == null) $before = array();
+    if($before == null) { $before = array(); }
     foreach(array_diff($before, $now) as $tag) {
       $multiExecBlock->sRemove($this->buildKey($tag), $session->buildKey($this->object));
     }
@@ -109,7 +118,7 @@ class Tag extends Event {
     }
   }
   protected function buildKey($value) {
-    return $this->family . $value;
+    return $this->family . escape($value);
   }
   public function onDelete($session, &$multiExecBlock) {
     foreach($this->object->__before[$this->field] as $tag) {
@@ -120,7 +129,7 @@ class Tag extends Event {
 
 abstract class Popo {
   public $__data = array();
-  public $__session;
+  public $__session = null;
   public $id = null;
   public $__before = array();
   private $__events = array();
